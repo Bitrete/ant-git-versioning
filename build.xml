@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<project name="example" basedir="." default="build">
+	<import file="versioning.xml"/>
+
+	<target name="get-publish-configuration" depends="version">
+		<condition property="option.release" value="true">
+			<equals arg1="${publish.status}" arg2="release"/>
+		</condition>
+	</target>
+	
+	<target name="set-configuration-release" depends="get-publish-configuration" if="option.release">
+		<echo message="Building release!"/>
+	</target>
+	
+	<target name="set-configuration-development" depends="get-publish-configuration" unless="option.release">
+		<echo message="Building development version :-("/>
+	</target>
+
+	<target name="build" depends="set-configuration-release, set-configuration-development">
+		<echo message="Done!"/>
+	</target>
+</project>

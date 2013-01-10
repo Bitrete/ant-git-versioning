@@ -1,0 +1,102 @@
+<project name="versioning" basedir="." default="version">
+
+	<property environment="env"/>
+	
+	<condition property="git.executable" value="git">
+		<and>
+			<os family="unix"/>
+			<available file="git" type="file" filepath="${env.PATH}"/>
+		</and>
+	</condition>
+	
+	<condition property="git.executable" value="git.cmd">
+		<and>
+			<os family="windows"/>
+			<available file="git.cmd" type="file" filepath="${env.Path}"/>
+		</and>
+	</condition>
+	
+	<condition property="git.executable" value="git.exe">
+		<and>
+			<os family="windows"/>
+			<available file="git.exe" type="file" filepath="${env.Path}"/>
+		</and>
+	</condition>
+	
+	<target name="check-git" unless="git.executable">
+		<echo message="+=====================================+"/>
+		<echo message="| WARNING!!!                          |"/>
+		<echo message="| Git is not available!               |"/>
+		<echo message="| Version information will be limited |"/>
+		<echo message="| to local time based versions only!  |"/>
+		<echo message="+=====================================+"/>
+	</target>
+
+	<target name="default-version">
+		<tstamp>
+			<format property="pubdate" pattern="yyyyMMddHHmmss"/>
+		</tstamp>
+		<property name="development.version.suffix" value="-local-${pubdate}"/>
+		<property name="default.version" value="0.0.0${development.version.suffix}"/>
+	</target>
+	
+	<target name="git-version" depends="default-version, check-git">
+		<exec executable="${git.executable}" outputproperty="describe.output.git" failifexecutionfails="false">
+			<arg value="describe"/>
+			<arg value="--tags"/>
+			<arg value="--always"/>
+			<arg value="--long"/>
+			<arg value="HEAD"/>
+		</exec>
+		<condition property="git.version" value="${describe.output.git}" else="">
+			<and>
+				<isset property="describe.output.git"/>
+				<matches string="${describe.output.git}" casesensitive="false" pattern="[\dabcdef]{7}"/> 
+			</and>
+		</condition>
+		<condition property="unspecified.version" value="${default.version}-g${git.version}" else="${default.version}">
+			<length string="${git.version}" trim="yes" length="0" when="ne"/>
+		</condition>
+		<condition property="module.version" value="${git.version}" else="${unspecified.version}">
+			<and>
+				<isset property="git.version"/>
+				<matches string="${git.version}" casesensitive="false" pattern="\d+\.\d+\.\d+\-\d+\-g[\dabcdef]{7}"/> 
+			</and>
+		</condition>
+	</target>
+	
+	<target name="ivy-version" depends="default-version">
+		<exec executable="${git.executable}" outputproperty="describe.output.ivy" failifexecutionfails="false">
+			<arg value="describe"/>
+			<arg value="--tags"/>
+			<arg value="--abbrev=0"/>
+			<arg value="HEAD"/>
+		</exec>
+		<condition property="release.publish.version" value="${describe.output.ivy}" else="0.0.0">
+			<and>
+				<isset property="describe.output.ivy"/>
+				<matches string="${describe.output.ivy}" casesensitive="false" pattern="\d+\.\d+\.\d+"/> 
+			</and>
+		</condition>
+		<property name="development.publish.version" value="${release.publish.version}${development.version.suffix}"/>
+		
+	</target>
+
+	<target name="version" depends="git-version, ivy-version">
+		<condition property="version" value="${release.publish.version}" else="${module.version}">
+			<matches string="${module.version}" casesensitive="false" pattern="\d+\.\d+\.\d+-0-g[\dabcdef]{7}"/> 
+		</condition>
+		<condition property="publish.status" value="release" else="development">
+			<matches string="${version}" casesensitive="false" pattern="^\d+\.\d+\.\d+$"/> 
+		</condition>
+		<condition property="publish.version" value="${release.publish.version}" else="${development.publish.version}">
+			<equals arg1="${publish.status}" arg2="release"/>
+		</condition>
+		<echo message="VERSIONING"/>
+		<echo message="  Module Version: ${module.version}"/>
+		<echo message="  Version: ${version}"/>
+		<echo message="PUBLISHING"/>
+		<echo message="  Publish Status: ${publish.status}"/>
+		<echo message="  Publish Version: ${publish.version}"/>
+	</target>
+</project>
